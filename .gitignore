@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+env/
+venv/
+ENV/
+.venv/
+pip-wheel-metadata/
+
+# Environment variables
+.env
+*.env
+
+# Pytest
+.pytest_cache/
+.cache/
+htmlcov/
+.coverage
+*.cover
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Data / secrets
+data/*.db
+data/*.sqlite
