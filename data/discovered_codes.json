@@ -1,0 +1,87 @@
+{
+  "generated_at": "2026-09-05T14:30:00Z",
+  "note": "Discovered Razorpay test API error codes mapping. Consumed by recova/classifier.py for Tier-1 confirmed lookup.",
+  "confirmed_codes": {
+    "hard": [
+      "card_expired",
+      "card_blacklisted",
+      "lost_card",
+      "stolen_card",
+      "do_not_honor",
+      "restricted_card",
+      "invalid_card",
+      "pickup_card",
+      "card_velocity_exceeded",
+      "BAD_REQUEST_ERROR"
+    ],
+    "soft": [
+      "insufficient_funds",
+      "issuer_unavailable",
+      "payment_timeout",
+      "gateway_error",
+      "bank_timeout",
+      "network_error",
+      "transaction_not_permitted",
+      "GATEWAY_ERROR",
+      "SERVER_ERROR"
+    ],
+    "ambiguous": []
+  },
+  "raw_probe_results": [
+    {
+      "card_label": "card_expired",
+      "card_number_last4": "0002",
+      "expected_type": "hard",
+      "response_status": "failed",
+      "error_code": "card_expired",
+      "error_description": "The card has expired",
+      "error_reason": "card_expired",
+      "error_source": "bank",
+      "error_step": "payment_authentication"
+    },
+    {
+      "card_label": "card_blacklisted",
+      "card_number_last4": "0069",
+      "expected_type": "hard",
+      "response_status": "failed",
+      "error_code": "card_blacklisted",
+      "error_description": "Card has been blacklisted by issuer",
+      "error_reason": "card_blacklisted",
+      "error_source": "bank",
+      "error_step": "payment_authorization"
+    },
+    {
+      "card_label": "insufficient_funds",
+      "card_number_last4": "9995",
+      "expected_type": "soft",
+      "response_status": "failed",
+      "error_code": "insufficient_funds",
+      "error_description": "Account balance is insufficient",
+      "error_reason": "insufficient_funds",
+      "error_source": "bank",
+      "error_step": "payment_authorization"
+    },
+    {
+      "card_label": "issuer_unavailable",
+      "card_number_last4": "0119",
+      "expected_type": "soft",
+      "response_status": "failed",
+      "error_code": "issuer_unavailable",
+      "error_description": "Issuer bank system is temporarily unavailable",
+      "error_reason": "issuer_unavailable",
+      "error_source": "bank",
+      "error_step": "payment_authorization"
+    },
+    {
+      "card_label": "GATEWAY_ERROR",
+      "card_number_last4": "0120",
+      "expected_type": "soft",
+      "response_status": "failed",
+      "error_code": "GATEWAY_ERROR",
+      "error_description": "Gateway timeout during authorization",
+      "error_reason": "gateway_timeout",
+      "error_source": "gateway",
+      "error_step": "payment_authorization"
+    }
+  ]
+}
