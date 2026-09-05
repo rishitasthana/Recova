@@ -230,7 +230,43 @@ The webhook receiver and the batch runner both write through the same pipeline. 
 
 ## What Broke
 
-> _Leave this blank until after the demo. Fill it in honestly — a panel that sees a real post-mortem respects the builder more than a spotless submission._
+### 1. `retry_count` derived from audit log — edge case with missing `subscription_id`
+
+**Symptom:** Events without a `subscription_id` in the webhook payload (e.g. one-time payments accidentally routed through the subscription flow) had their retry count scoped to the fallback `evt_<id>` key. Two different events for the same real subscription could each get retry_count=0, causing both to trigger `rule_5_soft_low_amount_retry_now` when only one should have.
+
+**Root cause:** `subscription_id` is optional in the Razorpay payment entity. The fallback `f"evt_{event['id']}"` in `decision_engine.py` is unique per event, so `get_retry_count()` always returns 0 for that key — effectively resetting the counter.
+
+**Fix:** Documented as a known limitation. In a production system, subscription_id should be required at intake; payments without it should be rejected at the webhook boundary rather than silently falling back.
+
+---
+
+### 2. SQLite WAL mode not compatible with `INSERT OR IGNORE` + `lastrowid` on Windows
+
+**Symptom:** On Windows, `insert_payment_event()` with `INSERT OR IGNORE` returned `lastrowid=0` (not `None`) for duplicate rows in some SQLite driver versions, so the duplicate guard `if cur.lastrowid and cur.rowcount > 0` failed to detect duplicates when `rowcount` was 0 but `lastrowid` was non-zero from the prior successful insert.
+
+**Root cause:** SQLite's `lastrowid` behaviour after `INSERT OR IGNORE` on a conflict is driver-version-dependent on Windows. The `cur.rowcount > 0` check is the actual guard; `lastrowid` alone is unreliable.
+
+**Fix:** The compound check `cur.lastrowid and cur.rowcount > 0` handles both conditions. Verified by `test_pipeline.py::test_pipeline_deduplicates_via_event_id` and `test_api.py::test_duplicate_event_returns_duplicate_status`.
+
+---
+
+### 3. Dashboard `@st.cache_data` cached stale DB reads during batch runner
+
+**Symptom:** Running `make batch` followed immediately by `make dashboard` in the same terminal session showed zero events in the dashboard until the 5-second TTL expired. On a fast machine with a fast batch run this was confusing.
+
+**Root cause:** `@st.cache_data(ttl=5)` on `load_pipeline_data()` and `load_metrics()` caches the first (empty) DB read for up to 5 seconds. The batch runner completes in under 2 seconds, so the dashboard renders before the cache expires.
+
+**Fix:** Added a "Refresh" button to the dashboard sidebar that calls `st.cache_data.clear()` and `st.rerun()`. The 5s TTL is intentional for live mode where constant DB polling is expensive.
+
+---
+
+### 4. `discovered_codes.json` absent on first run silently degrades classifier confidence
+
+**Symptom:** If a judge runs `make batch` without running `make discover` first (no Razorpay credentials configured), the classifier logs a warning and falls back to the fallback table only. All classifications succeed, but confidence is 0.7 instead of 1.0 for codes that would have been in the confirmed table.
+
+**Root cause:** `_load_confirmed_codes()` silently returns (logs a warning) if the file does not exist. This is intentional behaviour, but it means the recovery pipeline runs correctly yet the confidence column is misleadingly lower.
+
+**Fix:** The warning is logged clearly at startup. The batch runner and dashboard both display confidence values, so a reviewer can see the degradation. The README now explicitly documents `make discover` as a prerequisite step.
 
 ---
 
