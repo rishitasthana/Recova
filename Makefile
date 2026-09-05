@@ -7,7 +7,7 @@
 # Note: discover and seed require live Razorpay test credentials in .env.
 # Run 'make setup' first and fill in .env before calling those targets.
 
-.PHONY: setup discover seed simulate batch dashboard api test clean
+.PHONY: setup discover seed simulate batch dashboard api test coverage clean
 
 # ─────────────────────────────────────────────────────────────────────────────
 # setup — install dependencies and create .env from the example template
@@ -64,6 +64,16 @@ api:
 # ─────────────────────────────────────────────────────────────────────────────
 test:
 	pytest tests/ -v
+
+# ─────────────────────────────────────────────────────────────────────────────
+# coverage — run pytest with line-coverage report across all source modules
+# Shows which lines in recova/ and api/ are not yet tested
+# ─────────────────────────────────────────────────────────────────────────────
+coverage:
+	pytest tests/ --cov=recova --cov=api --cov-report=term-missing --cov-report=html:data/htmlcov -q
+	@echo ""
+	@echo "📊  HTML report written to data/htmlcov/index.html"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # clean — remove the local DB and batch results
