@@ -81,16 +81,52 @@ recova/
 │   ├── simulate_payments.py       # Trigger batched test card payments
 │   └── batch_runner.py            # 75-event pipeline test + invariant check
 ├── dashboard/
-│   └── app.py              # Streamlit dashboard
+│   └── app.py              # Streamlit dashboard (5 interactive tabs)
 ├── tests/
 │   ├── test_classifier.py
-│   └── test_decision_engine.py
+│   ├── test_decision_engine.py
+│   ├── test_execution.py
+│   ├── test_pipeline.py
+│   ├── test_db.py
+│   ├── test_api.py
+│   └── test_new_features.py
 └── data/
     ├── recova.db            # SQLite DB (gitignored)
-    ├── discovered_codes.json
-    ├── seed_data.json
-    └── batch_results.json
+    ├── discovered_codes.json # Confirmed Razorpay decline codes (Tier-1)
+    ├── seed_data.json       # Pre-seeded test customers & plans
+    └── batch_results.json   # Batch run metrics & invariant check
 ```
+
+---
+
+## Streamlit Recovery Dashboard (5 Interactive Tabs)
+
+Run with `streamlit run dashboard/app.py` ([http://localhost:8501](http://localhost:8501)):
+
+1. **📊 Overview & Live Feed**: Live KPI tiles (Total Events, Revenue at Risk, Recovered, Recovery Rate), interactive Plotly charts (Decision Distribution, Recovery by Decline Type, Cumulative Recovered), and searchable forensic audit log.
+2. **🧪 Interactive Sandbox**: Test custom payment failure scenarios in real time. Choose amount, error code, customer, prior retry count, and days stale. Click **⚡ Run Pipeline** to watch the 4-step decision chain, then click **💳 Simulate Customer Payment** to settle and record recovery.
+3. **📧 Dunning & Notification Center**: Live visual preview of omnichannel customer recovery communications:
+   - **Branded HTML Email**: With Razorpay payment link button, invoice breakdown, and 24h retry countdown.
+   - **SMS / WhatsApp**: Quick-pay shortlink reminder template.
+   - **CRM Escalation Ticket**: Formatted ticket for Zendesk/Freshdesk with churn risk score and prior retry history.
+4. **📜 Rules Explorer & Policy Matrix**: Visual matrix of all 6 deterministic rules in priority order, condition logic, architectural rationales, and live execution counters.
+5. **💾 Export & Compliance Center**: One-click CSV and JSON downloads of the entire audit trail plus raw JSON inspection.
+
+---
+
+## REST API Endpoints
+
+FastAPI server runs on [http://127.0.0.1:8000](http://127.0.0.1:8000) (Interactive Swagger docs at `/docs`):
+
+- `GET /health` — Service liveness check.
+- `GET /metrics` — Recovery rate, revenue at risk, and decision distribution.
+- `GET /events` — Full pipeline audit chain.
+- `POST /webhook` — Razorpay webhook receiver (`payment.failed` triggers pipeline; `payment.captured` resolves pending recoveries).
+- `POST /simulate` — Programmatic simulation of payment failures through the pipeline.
+- `POST /recover` — Mark an action as recovered upon customer payment link settlement.
+- `GET /rules` — Deterministic rules summary with live trigger counts.
+- `GET /export/csv` — Stream full audit logs as downloadable CSV.
+- `GET /export/json` — JSON export of all audit logs.
 
 ---
 
