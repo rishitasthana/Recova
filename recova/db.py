@@ -348,15 +348,14 @@ def get_summary_metrics() -> dict:
             "SELECT COALESCE(SUM(amount), 0) FROM payment_events WHERE status = 'failed'"
         ).fetchone()[0]
 
-        # Recovered = retry actions that returned outcome='success'
+        # Recovered = recovery actions that resulted in outcome='success'
         recovered_row = conn.execute("""
             SELECT COALESCE(SUM(pe.amount), 0)
             FROM actions_log al
             JOIN decisions d      ON al.decision_id       = d.id
             JOIN classifications c ON d.classification_id = c.id
             JOIN payment_events pe ON c.payment_event_id  = pe.id
-            WHERE al.action_type IN ('retry_now', 'retry_scheduled')
-              AND al.outcome = 'success'
+            WHERE al.outcome = 'success'
         """).fetchone()
         recovered = recovered_row[0] if recovered_row else 0
 
@@ -378,7 +377,6 @@ def get_summary_metrics() -> dict:
                 COUNT(DISTINCT pe.id)              AS total,
                 COALESCE(SUM(pe.amount), 0)        AS at_risk,
                 COALESCE(SUM(CASE WHEN al.outcome='success'
-                               AND al.action_type IN ('retry_now','retry_scheduled')
                                THEN pe.amount ELSE 0 END), 0) AS recovered
             FROM payment_events pe
             LEFT JOIN classifications c  ON c.payment_event_id = pe.id
@@ -397,3 +395,80 @@ def get_summary_metrics() -> dict:
         "classification_counts": {r["classification"]: r["cnt"] for r in classification_counts},
         "recovery_by_type": [dict(r) for r in recovery_by_type],
     }
+
+
+def record_recovery(
+    subscription_id: str | None = None,
+    payment_id: str | None = None,
+    event_id: int | None = None,
+    detail: str = "Recovered via customer payment confirmation",
+) -> int | None:
+    """
+    Mark an active recovery intervention as successful.
+    Finds the latest action_log entry associated with the given event_id,
+    payment_id, or subscription_id, and updates its outcome to 'success'.
+    Returns the action_log id updated, or None if not found.
+    """
+    with get_connection() as conn:
+        row = None
+        if event_id:
+            row = conn.execute("""
+                SELECT al.id FROM actions_log al
+                JOIN decisions d ON al.decision_id = d.id
+                JOIN classifications c ON d.classification_id = c.id
+                WHERE c.payment_event_id = ?
+                ORDER BY al.id DESC LIMIT 1
+            """, (event_id,)).fetchone()
+
+        if not row and payment_id:
+            row = conn.execute("""
+                SELECT al.id FROM actions_log al
+                JOIN decisions d ON al.decision_id = d.id
+                JOIN classifications c ON d.classification_id = c.id
+                JOIN payment_events pe ON c.payment_event_id = pe.id
+                WHERE pe.payment_id = ? AND al.outcome != 'success'
+                ORDER BY al.id DESC LIMIT 1
+            """, (payment_id,)).fetchone()
+
+        if not row and subscription_id:
+            row = conn.execute("""
+                SELECT al.id FROM actions_log al
+                JOIN decisions d ON al.decision_id = d.id
+                JOIN classifications c ON d.classification_id = c.id
+                JOIN payment_events pe ON c.payment_event_id = pe.id
+                WHERE pe.subscription_id = ? AND al.outcome != 'success'
+                ORDER BY al.id DESC LIMIT 1
+            """, (subscription_id,)).fetchone()
+
+        if row:
+            action_id = row["id"]
+            conn.execute("""
+                UPDATE actions_log
+                SET outcome = 'success', outcome_detail = ?
+                WHERE id = ?
+            """, (detail, action_id))
+            return action_id
+        return None
+
+
+def get_rules_summary() -> list[dict]:
+    """
+    Returns a list of all decision rules, their descriptions, and current trigger counts.
+    """
+    with get_connection() as conn:
+        counts = dict(conn.execute("""
+            SELECT rule_triggered, COUNT(*) as cnt
+            FROM decisions
+            GROUP BY rule_triggered
+        """).fetchall())
+
+    from recova.decision_engine import RULES
+    result = []
+    for rule_name, explanation in RULES.items():
+        result.append({
+            "rule": rule_name,
+            "explanation": explanation,
+            "trigger_count": counts.get(rule_name, 0),
+        })
+    return result
+
