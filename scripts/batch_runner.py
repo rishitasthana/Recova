@@ -387,6 +387,16 @@ def main():
         result = process_failed_payment(event_id)
         results_list.append(result)
 
+        # Simulate realistic downstream recovery: ~40% of soft retries or customer reminder actions succeed
+        if result.action_log_id and result.classification_id:
+            cls_row = db.get_classification(result.classification_id)
+            if cls_row and dict(cls_row).get("classification") == "soft":
+                if random.random() < 0.40:
+                    db.record_recovery(
+                        event_id=event_id,
+                        detail="Simulated customer settlement / successful retry payment",
+                    )
+
         if (i + 1) % 10 == 0:
             logger.info("  Progress: %d/%d events processed", i + 1, N_EVENTS)
 

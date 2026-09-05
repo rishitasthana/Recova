@@ -1,45 +1,45 @@
 {
-  "run_at": "2026-08-26T20:08:08.153727+00:00",
-  "total_events": 75,
-  "revenue_at_risk_paise": 6962500,
-  "revenue_at_risk_inr": 69625.0,
-  "recovered_paise": 0,
-  "recovered_inr": 0.0,
-  "recovery_rate": 0.0,
+  "run_at": "2026-09-05T15:04:48.337756+00:00",
+  "total_events": 225,
+  "revenue_at_risk_paise": 20407500,
+  "revenue_at_risk_inr": 204075.0,
+  "recovered_paise": 1717800,
+  "recovered_inr": 17178.0,
+  "recovery_rate": 0.0842,
   "avg_time_to_recovery_minutes": null,
   "decision_counts": {
-    "escalate_promise_to_pay": 7,
+    "escalate_promise_to_pay": 85,
     "retry_now": 3,
-    "retry_scheduled": 35,
-    "send_reminder": 12,
-    "stop": 18
+    "retry_scheduled": 42,
+    "send_reminder": 48,
+    "stop": 47
   },
   "classification_counts": {
-    "hard": 26,
-    "soft": 49
+    "hard": 84,
+    "soft": 141
   },
   "stopped_by_rule": {
-    "rule_1_stale_stop": 4,
-    "rule_2_hard_permanent_stop": 14
+    "rule_1_stale_stop": 11,
+    "rule_2_hard_permanent_stop": 36
   },
   "recovery_by_type": [
     {
       "classification": "hard",
-      "total": 26,
-      "at_risk": 2597400,
+      "total": 84,
+      "at_risk": 8391600,
       "recovered": 0,
-      "at_risk_inr": 25974.0,
+      "at_risk_inr": 83916.0,
       "recovered_inr": 0.0,
       "recovery_rate": 0.0
     },
     {
       "classification": "soft",
-      "total": 49,
-      "at_risk": 4365100,
-      "recovered": 0,
-      "at_risk_inr": 43651.0,
-      "recovered_inr": 0.0,
-      "recovery_rate": 0.0
+      "total": 141,
+      "at_risk": 12015900,
+      "recovered": 1717800,
+      "at_risk_inr": 120159.0,
+      "recovered_inr": 17178.0,
+      "recovery_rate": 0.143
     }
   ],
   "invariant_check_passed": true,
