@@ -187,6 +187,19 @@ async def receive_webhook(request: Request):
             "pipeline_error": result.error,
         }
 
+    # If a payment is captured, automatically resolve any pending recovery on that subscription/payment
+    if event_type == "payment.captured":
+        recovered_action_id = db.record_recovery(
+            subscription_id=event_data.get("subscription_id"),
+            payment_id=event_data.get("payment_id"),
+            detail=f"Recovered via payment.captured ({event_data.get('payment_id')})",
+        )
+        return {
+            "status": "recorded",
+            "event_id": event_id,
+            "recovered_action_id": recovered_action_id,
+        }
+
     return {"status": "recorded", "event_id": event_id}
 
 
@@ -204,3 +217,108 @@ async def get_events(limit: int = 50):
 async def get_metrics():
     """Return aggregate recovery metrics. Used by the dashboard KPI tiles."""
     return db.get_summary_metrics()
+
+
+@app.post("/simulate", tags=["simulation"])
+async def simulate_event(payload: dict):
+    """
+    Simulate a payment failure event programmatically and run it through the pipeline.
+    """
+    import uuid
+    payment_id = payload.get("payment_id") or f"pay_sim_{uuid.uuid4().hex[:14]}"
+    razorpay_event_id = payload.get("razorpay_event_id") or f"evt_sim_{uuid.uuid4().hex[:14]}"
+    event_data = {
+        "razorpay_event_id": razorpay_event_id,
+        "payment_id": payment_id,
+        "subscription_id": payload.get("subscription_id") or f"sub_sim_{uuid.uuid4().hex[:8]}",
+        "customer_id": payload.get("customer_id") or "cust_sim_user",
+        "amount": int(payload.get("amount", 99900)),
+        "currency": payload.get("currency", "INR"),
+        "status": "failed",
+        "error_code": payload.get("error_code", "insufficient_funds"),
+        "error_description": payload.get("error_description", "Payment failed simulation"),
+        "error_reason": payload.get("error_reason", payload.get("error_code", "insufficient_funds")),
+        "error_source": payload.get("error_source", "bank"),
+        "error_step": payload.get("error_step", "payment_authorization"),
+        "raw_payload": json.dumps(payload),
+    }
+    event_id = db.insert_payment_event(event_data)
+    if event_id is None:
+        raise HTTPException(status_code=400, detail="Event ID already exists")
+
+    result = process_failed_payment(event_id)
+    cls_row = db.get_classification(result.classification_id) if result.classification_id else None
+    dec_row = db.get_decision(result.decision_id) if result.decision_id else None
+
+    return {
+        "status": "processed",
+        "event_id": event_id,
+        "payment_id": payment_id,
+        "classification": dict(cls_row) if cls_row else None,
+        "decision": dict(dec_row) if dec_row else None,
+        "action_log_id": result.action_log_id,
+        "pipeline_error": result.error,
+    }
+
+
+@app.post("/recover", tags=["recovery"])
+async def recover_payment(payload: dict):
+    """
+    Mark an active recovery intervention as recovered (e.g. customer completed payment link).
+    """
+    event_id = payload.get("event_id")
+    subscription_id = payload.get("subscription_id")
+    payment_id = payload.get("payment_id")
+    note = payload.get("note", "Recovered via payment link / customer settlement")
+
+    action_id = db.record_recovery(
+        subscription_id=subscription_id,
+        payment_id=payment_id,
+        event_id=event_id,
+        detail=note,
+    )
+    if action_id is None:
+        raise HTTPException(status_code=404, detail="No matching pending recovery action found")
+
+    return {
+        "status": "recovered",
+        "action_log_id": action_id,
+        "detail": note,
+    }
+
+
+@app.get("/rules", tags=["rules"])
+async def get_rules():
+    """Return all deterministic decision rules and their execution statistics."""
+    return db.get_rules_summary()
+
+
+@app.get("/export/csv", tags=["export"])
+async def export_csv(limit: int = 1000):
+    """Export the full audit trail as a downloadable CSV."""
+    import csv
+    import io
+    rows = db.get_full_pipeline_view(limit=limit)
+    if not rows:
+        return Response(content="", media_type="text/csv")
+
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=list(rows[0].keys()))
+    writer.writeheader()
+    for r in rows:
+        writer.writerow(dict(r))
+
+    csv_data = output.getvalue()
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=recova_audit_trail.csv"},
+    )
+
+
+@app.get("/export/json", tags=["export"])
+async def export_json(limit: int = 1000):
+    """Export the full audit trail as JSON."""
+    rows = db.get_full_pipeline_view(limit=limit)
+    return [dict(r) for r in rows]
+
