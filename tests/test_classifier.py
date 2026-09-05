@@ -30,6 +30,12 @@ from recova.classifier import (
 class TestFallbackHardCodes:
     """All fallback hard codes should classify as hard with confidence 0.7."""
 
+    @pytest.fixture(autouse=True)
+    def clear_confirmed(self, monkeypatch):
+        import recova.classifier as cls_mod
+        monkeypatch.setattr(cls_mod, "_CONFIRMED_HARD", set())
+        monkeypatch.setattr(cls_mod, "_CONFIRMED_SOFT", set())
+
     @pytest.mark.parametrize("code", list(FALLBACK_HARD_CODES))
     def test_hard_fallback(self, code):
         classification, confidence, reason, source = _lookup(code, "")
@@ -40,6 +46,12 @@ class TestFallbackHardCodes:
 
 class TestFallbackSoftCodes:
     """All fallback soft codes should classify as soft with confidence 0.7."""
+
+    @pytest.fixture(autouse=True)
+    def clear_confirmed(self, monkeypatch):
+        import recova.classifier as cls_mod
+        monkeypatch.setattr(cls_mod, "_CONFIRMED_HARD", set())
+        monkeypatch.setattr(cls_mod, "_CONFIRMED_SOFT", set())
 
     @pytest.mark.parametrize("code", list(FALLBACK_SOFT_CODES))
     def test_soft_fallback(self, code):
