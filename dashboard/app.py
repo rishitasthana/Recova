@@ -162,10 +162,42 @@ div[data-testid="stMetric"] {
 </style>
 """, unsafe_allow_html=True)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Sidebar — manual cache flush + status info
+# ─────────────────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("### ⚙️ Controls")
+    if st.button("🔄 Refresh Now", use_container_width=True, type="primary", key="sidebar_refresh"):
+        st.cache_data.clear()
+        st.rerun()
+    st.caption(
+        "Use **Refresh Now** after running `make batch` to immediately "
+        "reload data without waiting for the 5s TTL to expire."
+    )
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Data helpers
-# ─────────────────────────────────────────────────────────────────────────────
+    st.markdown("---")
+    st.markdown("### 🏷️ Legend")
+    st.markdown("""
+| Badge | Meaning |
+|---|---|
+| 🔴 hard | Permanent — card unusable |
+| 🔵 soft | Transient — retriable |
+| ✅ retry | Retried via Razorpay API |
+| 📧 reminder | Reminder email queued |
+| ⚠️ escalate | Handed to human agent |
+| ⛔ stop | Recovery abandoned |
+""")
+
+    st.markdown("---")
+    st.markdown("### 🔗 Links")
+    st.markdown("""
+- [Razorpay Test Dashboard](https://dashboard.razorpay.com/app/payments)
+- [FastAPI Docs](http://localhost:8000/docs)
+- [GitHub Repo](https://github.com/rishitasthana/Recova)
+""")
+    st.caption("ReCova · Razorpay Buildathon · Revenue Recovery Track")
+
+
 
 @st.cache_data(ttl=5)
 def load_pipeline_data(limit: int = 200) -> pd.DataFrame:
